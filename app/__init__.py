@@ -21,19 +21,25 @@ def init_db():
             sslmode="require",
             row_factory=dict_row
         )
-        with conn:
-            with conn.cursor() as cur:
-                base = os.path.dirname(os.path.dirname(__file__))
-                with open(os.path.join(base, "database/DDL_FooFighters.sql")) as f:
-                    cur.execute(f.read())
-                with open(os.path.join(base, "database/materialized_view.sql")) as f:
-                    cur.execute(f.read())
+        # Try schema first, ignore if already exists
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    base = os.path.dirname(os.path.dirname(__file__))
+                    with open(os.path.join(base, "database/DDL_FooFighters.sql")) as f:
+                        cur.execute(f.read())
+                    with open(os.path.join(base, "database/materialized_view.sql")) as f:
+                        cur.execute(f.read())
+        except Exception as schema_err:
+            print(f"Schema skipped: {schema_err}")
+
+        # Always try to seed
         from database.seed import run_seed
         run_seed(conn)
         conn.close()
         print("DB initialized and seeded.")
     except Exception as e:
-        print(f"DB init skipped: {e}")
+        print(f"DB init failed: {e}")
  
 def create_app():
     app = Flask(__name__)
