@@ -25,10 +25,14 @@ def init_db():
                 with open(os.path.join(base, "database/materialized_view.sql")) as f:
                     cur.execute(f.read())
         conn.close()
-        print("DB initialized.")
+
+        # Run seed separately
+        import subprocess
+        subprocess.run(["python3", "database/seed.py"], check=True)
+        print("DB initialized and seeded.")
     except Exception as e:
         print(f"DB init skipped: {e}")
-
+            
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
