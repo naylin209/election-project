@@ -20,11 +20,11 @@ def run_seed(conn):
 
         # Users
         users = [
-            (None,    "admin@example.com",    "Admin",   "User",   "admin"),
-            (None,    "employee@example.com", "Emma",    "Ployee", "employee"),
-            (ieee_id, "officer@example.com",  "Oliver",  "Ficer",  "officer"),
-            (ieee_id, "member@example.com",   "Mary",    "Member", "member"),
-            (acm_id,  "member2@example.com",  "Mark",    "Two",    "member"),
+            (None,    "admin@example.com",    "Admin",  "User",   "admin"),
+            (None,    "employee@example.com", "Emma",   "Ployee", "employee"),
+            (ieee_id, "officer@example.com",  "Oliver", "Ficer",  "officer"),
+            (ieee_id, "member@example.com",   "Mary",   "Member", "member"),
+            (acm_id,  "member2@example.com",  "Mark",   "Two",    "member"),
         ]
         for society_id, email, first, last, role in users:
             cur.execute("""
@@ -42,70 +42,75 @@ def run_seed(conn):
 
         for sid in (ieee_id, acm_id):
             cur.execute("""
-                INSERT INTO employee_society_assignment (user_id, society_id)
-                VALUES (%s, %s) ON CONFLICT DO NOTHING
+                SELECT 1 FROM employee_society_assignment
+                WHERE user_id = %s AND society_id = %s
             """, (emp_id, sid))
+            if not cur.fetchone():
+                cur.execute("""
+                    INSERT INTO employee_society_assignment (user_id, society_id)
+                    VALUES (%s, %s)
+                """, (emp_id, sid))
 
         # Election
         cur.execute("""
-            INSERT INTO election
-                (society_id, created_by, name, description, start_date, end_date, status)
-            VALUES (%s, %s, 'IEEE 2026 Officer Election',
-                    'Annual officer election for IEEE chapter.',
-                    '2026-01-01', '2026-12-31', 'active')
-            ON CONFLICT DO NOTHING
-            RETURNING election_id
-        """, (ieee_id, admin_id))
+            SELECT election_id FROM election WHERE name = 'IEEE 2026 Officer Election'
+        """)
         row = cur.fetchone()
         if not row:
-            cur.execute("SELECT election_id FROM election WHERE name = 'IEEE 2026 Officer Election'")
+            cur.execute("""
+                INSERT INTO election
+                    (society_id, created_by, name, description, start_date, end_date, status)
+                VALUES (%s, %s, 'IEEE 2026 Officer Election',
+                        'Annual officer election for IEEE chapter.',
+                        '2026-01-01', '2026-12-31', 'active')
+                RETURNING election_id
+            """, (ieee_id, admin_id))
             row = cur.fetchone()
         election_id = row["election_id"]
 
         # Offices
-        cur.execute("""
-            INSERT INTO office (election_id, title, votes_allowed, allow_write_in, display_order)
-            VALUES
-                (%s, 'President',      1, false, 1),
-                (%s, 'Vice President', 1, false, 2),
-                (%s, 'Secretary',      1, true,  3)
-            ON CONFLICT DO NOTHING
-            RETURNING office_id, title
-        """, (election_id, election_id, election_id))
+        cur.execute("SELECT office_id, title FROM office WHERE election_id = %s ORDER BY display_order", (election_id,))
         offices = cur.fetchall()
-
         if not offices:
-            cur.execute("SELECT office_id, title FROM office WHERE election_id = %s ORDER BY display_order", (election_id,))
+            cur.execute("""
+                INSERT INTO office (election_id, title, votes_allowed, allow_write_in, display_order)
+                VALUES
+                    (%s, 'President',      1, false, 1),
+                    (%s, 'Vice President', 1, false, 2),
+                    (%s, 'Secretary',      1, true,  3)
+                RETURNING office_id, title
+            """, (election_id, election_id, election_id))
             offices = cur.fetchall()
 
         for office in offices:
             oid = office["office_id"]
             title = office["title"]
-            cur.execute("""
-                INSERT INTO candidate (office_id, name, title_position, display_order)
-                VALUES
-                    (%s, %s || ' Candidate A', 'Engineer', 1),
-                    (%s, %s || ' Candidate B', 'Manager',  2)
-                ON CONFLICT DO NOTHING
-            """, (oid, title, oid, title))
+            cur.execute("SELECT 1 FROM candidate WHERE office_id = %s LIMIT 1", (oid,))
+            if not cur.fetchone():
+                cur.execute("""
+                    INSERT INTO candidate (office_id, name, title_position, display_order)
+                    VALUES
+                        (%s, %s || ' Candidate A', 'Engineer', 1),
+                        (%s, %s || ' Candidate B', 'Manager',  2)
+                """, (oid, title, oid, title))
 
         # Initiative
-        cur.execute("""
-            INSERT INTO initiative (election_id, title, description, display_order)
-            VALUES (%s, 'Bylaw Amendment 1', 'Should we update meeting frequency to monthly?', 1)
-            ON CONFLICT DO NOTHING
-            RETURNING initiative_id
-        """, (election_id,))
+        cur.execute("SELECT initiative_id FROM initiative WHERE election_id = %s LIMIT 1", (election_id,))
         row = cur.fetchone()
         if not row:
-            cur.execute("SELECT initiative_id FROM initiative WHERE election_id = %s LIMIT 1", (election_id,))
+            cur.execute("""
+                INSERT INTO initiative (election_id, title, description, display_order)
+                VALUES (%s, 'Bylaw Amendment 1', 'Should we update meeting frequency to monthly?', 1)
+                RETURNING initiative_id
+            """, (election_id,))
             row = cur.fetchone()
         init_id = row["initiative_id"]
 
-        cur.execute("""
-            INSERT INTO initiative_option (initiative_id, label, display_order)
-            VALUES (%s, 'Yes', 1), (%s, 'No', 2), (%s, 'Abstain', 3)
-            ON CONFLICT DO NOTHING
-        """, (init_id, init_id, init_id))
+        cur.execute("SELECT 1 FROM initiative_option WHERE initiative_id = %s LIMIT 1", (init_id,))
+        if not cur.fetchone():
+            cur.execute("""
+                INSERT INTO initiative_option (initiative_id, label, display_order)
+                VALUES (%s, 'Yes', 1), (%s, 'No', 2), (%s, 'Abstain', 3)
+            """, (init_id, init_id, init_id))
 
     print("Seed complete.")
