@@ -10,12 +10,16 @@ FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fronten
 
 def init_db():
     try:
+        import psycopg
+        from psycopg.rows import dict_row
         conn = psycopg.connect(
             host=os.getenv("DB_HOST"),
             port=os.getenv("DB_PORT"),
             dbname=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD")
+            password=os.getenv("DB_PASSWORD"),
+            sslmode="require",
+            row_factory=dict_row
         )
         with conn:
             with conn.cursor() as cur:
@@ -24,15 +28,13 @@ def init_db():
                     cur.execute(f.read())
                 with open(os.path.join(base, "database/materialized_view.sql")) as f:
                     cur.execute(f.read())
+        from database.seed import run_seed
+        run_seed(conn)
         conn.close()
-
-        # Run seed separately
-        import subprocess
-        subprocess.run(["python3", "database/seed.py"], check=True)
         print("DB initialized and seeded.")
     except Exception as e:
         print(f"DB init skipped: {e}")
-            
+ 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)

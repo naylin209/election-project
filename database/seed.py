@@ -1,28 +1,8 @@
-"""
-Seed script — inserts test data into the american_dream database.
-Run from the project root:  python3 database/seed.py
-All users get password: password123
-"""
-import os
 import bcrypt
-import psycopg
-from psycopg.rows import dict_row
-from dotenv import load_dotenv
 
-load_dotenv()
+def run_seed(conn):
+    pw_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt(10)).decode()
 
-conn = psycopg.connect(
-    host=os.getenv("DB_HOST", "localhost"),
-    port=os.getenv("DB_PORT", "5432"),
-    dbname=os.getenv("DB_NAME", "american_dream"),
-    user=os.getenv("DB_USER", "student"),
-    password=os.getenv("DB_PASSWORD", ""),
-    row_factory=dict_row
-)
-
-pw_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt(10)).decode()
-
-with conn:
     with conn.cursor() as cur:
 
         # Societies
@@ -54,7 +34,7 @@ with conn:
                 ON CONFLICT (email) DO NOTHING
             """, (society_id, email, pw_hash, first, last, role))
 
-        # Employee → society assignment
+        # Employee society assignments
         cur.execute("""SELECT user_id FROM "user" WHERE email = 'employee@example.com'""")
         emp_id = cur.fetchone()["user_id"]
         cur.execute("""SELECT user_id FROM "user" WHERE email = 'admin@example.com'""")
@@ -66,7 +46,7 @@ with conn:
                 VALUES (%s, %s) ON CONFLICT DO NOTHING
             """, (emp_id, sid))
 
-        # Election (active so members can vote)
+        # Election
         cur.execute("""
             INSERT INTO election
                 (society_id, created_by, name, description, start_date, end_date, status)
@@ -86,9 +66,9 @@ with conn:
         cur.execute("""
             INSERT INTO office (election_id, title, votes_allowed, allow_write_in, display_order)
             VALUES
-                (%s, 'President',          1, false, 1),
-                (%s, 'Vice President',     1, false, 2),
-                (%s, 'Secretary',          1, true,  3)
+                (%s, 'President',      1, false, 1),
+                (%s, 'Vice President', 1, false, 2),
+                (%s, 'Secretary',      1, true,  3)
             ON CONFLICT DO NOTHING
             RETURNING office_id, title
         """, (election_id, election_id, election_id))
@@ -128,11 +108,4 @@ with conn:
             ON CONFLICT DO NOTHING
         """, (init_id, init_id, init_id))
 
-print("Done. Test accounts (password: password123):")
-print("  admin@example.com    — admin")
-print("  employee@example.com — employee (assigned to IEEE + ACM)")
-print("  officer@example.com  — officer  (IEEE)")
-print("  member@example.com   — member   (IEEE) ← can vote")
-print("  member2@example.com  — member   (ACM)")
-
-conn.close()
+    print("Seed complete.")
