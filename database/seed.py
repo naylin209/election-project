@@ -6,12 +6,16 @@ def run_seed(conn):
     with conn.cursor() as cur:
 
         # Societies
-        cur.execute("""
-            INSERT INTO society (name, description) VALUES
+        for name, desc in [
             ('IEEE', 'Institute of Electrical and Electronics Engineers'),
             ('ACM',  'Association for Computing Machinery')
-            ON CONFLICT (name) DO NOTHING
-        """)
+        ]:
+            cur.execute("SELECT society_id FROM society WHERE name = %s", (name,))
+            if not cur.fetchone():
+                cur.execute(
+                    "INSERT INTO society (name, description) VALUES (%s, %s)",
+                    (name, desc)
+                )
 
         cur.execute("SELECT society_id, name FROM society")
         societies = {r["name"]: r["society_id"] for r in cur.fetchall()}
@@ -52,9 +56,7 @@ def run_seed(conn):
                 """, (emp_id, sid))
 
         # Election
-        cur.execute("""
-            SELECT election_id FROM election WHERE name = 'IEEE 2026 Officer Election'
-        """)
+        cur.execute("SELECT election_id FROM election WHERE name = 'IEEE 2026 Officer Election'")
         row = cur.fetchone()
         if not row:
             cur.execute("""
