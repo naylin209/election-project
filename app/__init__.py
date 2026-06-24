@@ -7,12 +7,10 @@ from app.routes.auth_routes import auth_bp
 from app.routes.api_routes import api_bp
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-
 def init_db():
-    try:
-        import psycopg
+    def make_conn():
         from psycopg.rows import dict_row
-        conn = psycopg.connect(
+        return psycopg.connect(
             host=os.getenv("DB_HOST"),
             port=os.getenv("DB_PORT"),
             dbname=os.getenv("DB_NAME"),
@@ -21,26 +19,27 @@ def init_db():
             sslmode="require",
             row_factory=dict_row
         )
-        # Try schema first, ignore if already exists
-        try:
-            with conn:
-                with conn.cursor() as cur:
-                    base = os.path.dirname(os.path.dirname(__file__))
-                    with open(os.path.join(base, "database/DDL_FooFighters.sql")) as f:
-                        cur.execute(f.read())
-                    with open(os.path.join(base, "database/materialized_view.sql")) as f:
-                        cur.execute(f.read())
-        except Exception as schema_err:
-            print(f"Schema skipped: {schema_err}")
 
-        # Always try to seed
+    try:
+        with conn := make_conn():
+            with conn.cursor() as cur:
+                base = os.path.dirname(os.path.dirname(__file__))
+                with open(os.path.join(base, "database/DDL_FooFighters.sql")) as f:
+                    cur.execute(f.read())
+                with open(os.path.join(base, "database/materialized_view.sql")) as f:
+                    cur.execute(f.read())
+    except Exception as schema_err:
+        print(f"Schema skipped: {schema_err}")
+
+    try:
+        conn2 = make_conn()
         from database.seed import run_seed
-        run_seed(conn)
-        conn.close()
-        print("DB initialized and seeded.")
+        run_seed(conn2)
+        conn2.close()
+        print("Seed complete.")
     except Exception as e:
-        print(f"DB init failed: {e}")
- 
+        print(f"Seed failed: {e}")
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
