@@ -9,9 +9,9 @@ from app.routes.api_routes import api_bp
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
 def init_db():
-    def make_conn():
+    try:
         from psycopg.rows import dict_row
-        return psycopg.connect(
+        conn = psycopg.connect(
             host=os.getenv("DB_HOST"),
             port=os.getenv("DB_PORT"),
             dbname=os.getenv("DB_NAME"),
@@ -20,24 +20,10 @@ def init_db():
             sslmode="require",
             row_factory=dict_row
         )
-
-    try:
-        conn = make_conn()
-        with conn:
-            with conn.cursor() as cur:
-                base = os.path.dirname(os.path.dirname(__file__))
-                with open(os.path.join(base, "database/DDL_FooFighters.sql")) as f:
-                    cur.execute(f.read())
-                with open(os.path.join(base, "database/materialized_view.sql")) as f:
-                    cur.execute(f.read())
-    except Exception as schema_err:
-        print(f"Schema skipped: {schema_err}")
-
-    try:
-        conn2 = make_conn()
         from database.seed import run_seed
-        run_seed(conn2)
-        conn2.close()
+        run_seed(conn)
+        conn.commit()
+        conn.close()
         print("Seed complete.")
     except Exception as e:
         print(f"Seed failed: {e}")
