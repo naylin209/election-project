@@ -7,6 +7,7 @@ from app.routes.auth_routes import auth_bp
 from app.routes.api_routes import api_bp
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+
 def init_db():
     def make_conn():
         from psycopg.rows import dict_row
@@ -21,7 +22,8 @@ def init_db():
         )
 
     try:
-        with conn := make_conn():
+        conn = make_conn()
+        with conn:
             with conn.cursor() as cur:
                 base = os.path.dirname(os.path.dirname(__file__))
                 with open(os.path.join(base, "database/DDL_FooFighters.sql")) as f:
@@ -43,9 +45,7 @@ def init_db():
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-
     init_db()
-
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
     app.teardown_appcontext(close_db)
