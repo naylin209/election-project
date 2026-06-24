@@ -11,7 +11,8 @@ def get_db():
             dbname=current_app.config["DB_NAME"],
             user=current_app.config["DB_USER"],
             password=current_app.config["DB_PASSWORD"],
-            row_factory=dict_row
+            row_factory=dict_row,
+            sslmode="require"
         )
     return g.db
 
