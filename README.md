@@ -6,7 +6,7 @@ A web-based election platform for professional societies (IEEE, ACM, etc.) built
 
 ## Live Demo
 
-[https://thefoofighters.webdev.gccis.rit.edu/](https://election-project-2w22.onrender.com)
+[https://election-project-2w22.onrender.com/](https://election-project-2w22.onrender.com)
 
 ---
 
